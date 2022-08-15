@@ -1,5 +1,5 @@
 # AndroOBD Exporter
-Have you ever thought "What am I doing with my life if I'm not storing visualising my engine RPM on a daily basis?" No? Just me? Well fear not this tool bridges the gap between the data in your car and your prometheus instance. It leverages AndrOBD to read and store the data in an MQTT broker and this just reads that data and returns it when scraped.
+Have you ever thought "What am I doing with my life if I'm not storing and visualising my engine RPM on a daily basis?" No? Just me? Well fear not this tool bridges the gap between the data in your car and your prometheus instance. It leverages AndrOBD to read and store the data in an MQTT broker and this just reads that data and returns it when scraped.
 
 This tool reads andrOBD data being stored in an MQTT broker and gives it to prometheus when scraped as an exporter.
 
