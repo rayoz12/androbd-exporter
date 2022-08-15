@@ -1,0 +1,16 @@
+version: "3"
+
+services:
+  androbd-exporter:
+    build: .
+    container_name: androbd-exporter
+    environment:
+      - ANDROBD_TOPIC=AndrOBD
+      - MQTT_HOST=example.com
+      - MQTT_PORT=8883
+      - MQTT_TLS_ON=TRUE
+      - MQTT_USERNAME=<>
+      - MQTT_PASSWORD=<>
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
