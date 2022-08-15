@@ -20,7 +20,7 @@ If you don't have SSL setup properly on your broker you can configure `MQTT_IGNO
 
 # Prometheus Configuration
 1. Add the following job to your `prometheus.yml` file, noting the ip address on the last line pointing to the exporter:
-```
+```yaml
   - job_name: 'androbd'
     metrics_path: "/"
     # Override the global default and scrape targets from this job every 5 seconds.
