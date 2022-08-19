@@ -86,7 +86,7 @@ def on_disconnect(client, userdata, rc):
 
 if __name__ == '__main__':
     REGISTRY.register(AndroOBDCollector())
-    start_http_server(4003)
+    start_http_server(3000)
 
     client = mqtt.Client("androbd-exporter-nuc", transport = "websockets" if mqtt_is_ws else "tcp")  # Create instance of client
     client.on_connect = on_connect  # Define callback function for successful connection
