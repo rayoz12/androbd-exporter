@@ -2,6 +2,7 @@ import ssl
 import time
 from datetime import datetime, timedelta
 from os import environ
+from sys import exit
 
 import paho.mqtt.client as mqtt
 from prometheus_client import start_http_server
@@ -76,8 +77,12 @@ def on_message(client, userdata, msg):
     # print(split_topic, sensor, last_data[sensor])
 
 def on_disconnect(client, userdata, rc):
+    if rc == 7:
+        print("There's a conflicting client-id listening, Please change the client id!")
+        exit()
     if rc != 0:
         print("Unexpected disconnection." + str(rc))
+
 
 if __name__ == '__main__':
     REGISTRY.register(AndroOBDCollector())
