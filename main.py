@@ -1,6 +1,6 @@
 import ssl
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from os import environ
 
 import paho.mqtt.client as mqtt
@@ -31,10 +31,12 @@ if None in required:
     raise "Required options not passed in env"
 
 running_time = 0
-running_time_last_updated = None
+running_time_last_updated = datetime.now()
 
 last_data = {}
 is_up = True
+seconds_before_down = 1 * 60 # 5 mins
+td = timedelta(seconds=seconds_before_down)
 
 def on_running_time_update(client, userdata, msg):
     running_time = msg.payload.decode("utf-8")
@@ -46,8 +48,13 @@ class AndroOBDCollector(object):
     def collect(self):
         now = datetime.now()
         diff = now - running_time_last_updated
-        print(diff)
+        is_up = diff < td
+        print(diff, is_up)            
         yield GaugeMetricFamily('androbd_up', "If androbd is submitting data", value=1 if is_up else 0)
+        
+        if not is_up:
+            return
+        
         for key in last_data:
             yield GaugeMetricFamily(f"androbd_{key}", f'androbd data: {key}', value=last_data[key])
 
@@ -68,13 +75,18 @@ def on_message(client, userdata, msg):
     last_data[sensor] = msg.payload.decode("utf-8")
     # print(split_topic, sensor, last_data[sensor])
 
+def on_disconnect(client, userdata, rc):
+    if rc != 0:
+        print("Unexpected disconnection." + str(rc))
+
 if __name__ == '__main__':
     REGISTRY.register(AndroOBDCollector())
-    start_http_server(3000)
+    start_http_server(4003)
 
-    client = mqtt.Client("androbd-exporter", transport = "websockets" if mqtt_is_ws else "tcp")  # Create instance of client
+    client = mqtt.Client("androbd-exporter-nuc", transport = "websockets" if mqtt_is_ws else "tcp")  # Create instance of client
     client.on_connect = on_connect  # Define callback function for successful connection
     client.on_message = on_message  # Define callback function for receipt of a message
+    client.on_disconnect = on_disconnect
     
     if mqtt_is_ws:
         client.ws_set_options(path=mqtt_ws_path)
