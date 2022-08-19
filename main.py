@@ -1,9 +1,11 @@
-import time
-from os import environ
 import ssl
+import time
+from datetime import datetime
+from os import environ
+
+import paho.mqtt.client as mqtt
 from prometheus_client import start_http_server
 from prometheus_client.core import GaugeMetricFamily, CounterMetricFamily, REGISTRY
-import paho.mqtt.client as mqtt
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -28,11 +30,23 @@ required = [androbd_topic, mqtt_host, mqtt_port]
 if None in required:
     raise "Required options not passed in env"
 
+running_time = 0
+running_time_last_updated = None
+
 last_data = {}
 is_up = True
 
+def on_running_time_update(client, userdata, msg):
+    running_time = msg.payload.decode("utf-8")
+    running_time_last_updated = datetime.now()
+    print("Running_time updated!")
+
+
 class AndroOBDCollector(object):
     def collect(self):
+        now = datetime.now()
+        diff = now - running_time_last_updated
+        print(diff)
         yield GaugeMetricFamily('androbd_up', "If androbd is submitting data", value=1 if is_up else 0)
         for key in last_data:
             yield GaugeMetricFamily(f"androbd_{key}", f'androbd data: {key}', value=last_data[key])
@@ -43,6 +57,7 @@ def on_connect(client, userdata, flags, rc):  # The callback for when
     print("Connected with result code {0}".format(str(rc)))  
 
     client.subscribe(f"{androbd_topic}/#")
+    client.message_callback_add(f"{androbd_topic}/running_time", on_running_time_update)
 
 
 
