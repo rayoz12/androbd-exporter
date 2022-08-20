@@ -12,8 +12,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 androbd_topic = environ.get("ANDROBD_TOPIC", None)
+seconds_before_down = int(environ.get("ANDROBD_INACTIVE_THRESHOLD", "60"))
 mqtt_host = environ.get("MQTT_HOST", None)
 mqtt_port = environ.get("MQTT_PORT", None)
+mqtt_client_id = environ.get("MQTT_CLIENT_ID", "androbd-exporter")
 mqtt_is_ws = "MQTT_WS_ON" in environ
 mqtt_ws_path = environ.get("MQTT_WS_PATH", "/mqtt")
 mqtt_is_tls = "MQTT_TLS_ON" in environ
@@ -31,37 +33,46 @@ required = [androbd_topic, mqtt_host, mqtt_port]
 if None in required:
     raise "Required options not passed in env"
 
-running_time = 0
-# This can't be a plain variable but it has to be a dict so the reference is preserved between the
-# exporter and mqtt
-running_time_last_updated = {
-    "time": datetime.now()
+state = {
+    "running_time": 0,
+    "running_time_last_updated": datetime.now(),
+    "last_data": {},
+    "is_up": True,
+    "seconds_before_down": seconds_before_down,
+    "timedelta_before_down": timedelta(seconds=seconds_before_down)
 }
 
-last_data = {}
-is_up = True
-seconds_before_down = 1 * 60 # 5 mins
-td = timedelta(seconds=seconds_before_down)
+# running_time = 0
+# # This can't be a plain variable but it has to be a dict so the reference is preserved between the
+# # exporter and mqtt
+# running_time_last_updated = {
+#     "time": datetime.now()
+# }
+
+# last_data = {}
+# is_up = True
+# seconds_before_down = 1 * 60 # 5 mins
+# td = timedelta(seconds=seconds_before_down)
 
 def on_running_time_update(client, userdata, msg):
     running_time = msg.payload.decode("utf-8")
-    running_time_last_updated["time"] = datetime.now()
-    print("Running_time updated!", running_time_last_updated["time"])
+    state["running_time_last_updated"] = datetime.now()
+    print("Running_time updated!", state["running_time_last_updated"])
 
 
 class AndroOBDCollector(object):
     def collect(self):
         now = datetime.now()
-        diff = now - running_time_last_updated["time"]
-        is_up = diff < td
-        print(diff, running_time_last_updated["time"], is_up)
-        yield GaugeMetricFamily('androbd_up', "If androbd is submitting data", value=1 if is_up else 0)
+        diff = now - state["running_time_last_updated"]
+        state["is_up"] = diff < state["timedelta_before_down"]
+        print(diff, state["running_time_last_updated"], state["is_up"])
+        yield GaugeMetricFamily('androbd_up', "If androbd is submitting data", value=1 if state["is_up"] else 0)
         
-        if not is_up:
+        if not state["is_up"]:
             return
         
-        for key in last_data:
-            yield GaugeMetricFamily(f"androbd_{key}", f'androbd data: {key}', value=last_data[key])
+        for key in state["last_data"]:
+            yield GaugeMetricFamily(f"androbd_{key}", f'androbd data: {key}', value=state["last_data"][key])
 
 
 def on_connect(client, userdata, flags, rc):  # The callback for when 
@@ -77,8 +88,8 @@ def on_message(client, userdata, msg):
     print("Message received-> " + msg.topic + " " + str(msg.payload))  # Print a received msg
     split_topic = msg.topic.split("/")
     sensor = split_topic[-1]
-    last_data[sensor] = msg.payload.decode("utf-8")
-    # print(split_topic, sensor, last_data[sensor])
+    state["last_data"][sensor] = msg.payload.decode("utf-8")
+    # print(split_topic, sensor, state["last_data"][sensor])
 
 def on_disconnect(client, userdata, rc):
     if rc == 7:
@@ -92,7 +103,7 @@ if __name__ == '__main__':
     REGISTRY.register(AndroOBDCollector())
     start_http_server(3000)
 
-    client = mqtt.Client("androbd-exporter-nuc", transport = "websockets" if mqtt_is_ws else "tcp")  # Create instance of client
+    client = mqtt.Client(mqtt_client_id, transport = "websockets" if mqtt_is_ws else "tcp")  # Create instance of client
     client.on_connect = on_connect  # Define callback function for successful connection
     client.on_message = on_message  # Define callback function for receipt of a message
     client.on_disconnect = on_disconnect
