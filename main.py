@@ -42,7 +42,7 @@ td = timedelta(seconds=seconds_before_down)
 def on_running_time_update(client, userdata, msg):
     running_time = msg.payload.decode("utf-8")
     running_time_last_updated = datetime.now()
-    print("Running_time updated!")
+    print("Running_time updated!", running_time_last_updated)
 
 
 class AndroOBDCollector(object):
@@ -50,7 +50,7 @@ class AndroOBDCollector(object):
         now = datetime.now()
         diff = now - running_time_last_updated
         is_up = diff < td
-        print(diff, is_up)            
+        print(diff, is_up)
         yield GaugeMetricFamily('androbd_up', "If androbd is submitting data", value=1 if is_up else 0)
         
         if not is_up:
